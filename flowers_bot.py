@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 
 EVENT_BUTTONS = ['День рождения', 'Свадьба', 'Школа', 'Без повода'] # TODO выбор категорий из базы данных?
-PRICE_BUTTONS = ['~ 500', '~ 1000', '~ 2000', 'Больше', 'Не важно']
+PRICE_BUTTONS = ['500', '1000', '2000', 'Больше', 'Не важно']
 
 def build_menu(buttons, n_cols,
                header_buttons=None,
@@ -30,14 +30,12 @@ def build_menu(buttons, n_cols,
 def start(update: Update, context: CallbackContext) -> None:
 
     event_keyboard = build_menu(EVENT_BUTTONS, 2, footer_buttons='Другой повод')
-    reply_markup = ReplyKeyboardMarkup(event_keyboard, resize_keyboard=True)
+    reply_markup = ReplyKeyboardMarkup(event_keyboard, resize_keyboard=True, one_time_keyboard=True)
 
     update.message.reply_text(
         text=(
-            '*'
             'К какому событию готовимся?\n'
             'Выберите один из вариантов:\n'
-            '*'
         ),
     reply_markup=reply_markup
     )
@@ -57,7 +55,7 @@ def other_event(update: Update, context: CallbackContext) -> None:
         text=(
             'Введите свое событие:'
         ),
-    reply_markup=ReplyKeyboardRemove()
+    # reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -75,7 +73,7 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> None:
         text=(
             f'Запрос: \n'
             f'Категория: {event}\n'
-            f'Цена: {price}'
+            f'Цена: {price.replace("~", "")}'
         ),
     reply_markup=reply_markup
     )
@@ -84,10 +82,8 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> None:
     reply_markup = ReplyKeyboardMarkup(option_keyboard, resize_keyboard=True)
     update.message.reply_text(
         text=(
-            '*'
             'Хотите что\-то еще более уникальное?\n'
             'Подберите другой букет из нашей коллекции или закажите консультацию флориста'
-            '*'
         ),
     reply_markup=reply_markup
     )
@@ -107,16 +103,11 @@ def show_catalog_flower(update: Update, context: CallbackContext) -> None:
     reply_markup=reply_markup
     )
 
-    option_keyboard = [['Заказать консультацию', 'Посмотреть всю коллекцию']]
-    reply_markup = ReplyKeyboardMarkup(option_keyboard, resize_keyboard=True)
     update.message.reply_text(
         text=(
-            '*'
             'Хотите что\-то еще более уникальное?\n'
             'Подберите другой букет из нашей коллекции или закажите консультацию флориста'
-            '*'
         ),
-    reply_markup=reply_markup
     )
 
 
@@ -125,7 +116,7 @@ def price_request(update: Update, context: CallbackContext) -> None:
     context.user_data['event'] = update.message.text
 
     price_keyboard = build_menu(PRICE_BUTTONS, 3)
-    reply_markup = ReplyKeyboardMarkup(price_keyboard, resize_keyboard=True)
+    reply_markup = ReplyKeyboardMarkup(price_keyboard, resize_keyboard=True, one_time_keyboard=True)
     update.message.reply_text(
         text=(
             'На какую сумму рассчитываете?'
@@ -165,7 +156,7 @@ if __name__ == '__main__':
         (~Filters.text(PRICE_BUTTONS)) &
         (~Filters.regex('^(Посмотреть всю коллекцию)$')), price_request))
     dispatcher.add_handler(CommandHandler('cancel', cancel))
-    dispatcher.add_handler(CallbackQueryHandler(start_zakaz, pattern='zakaz'))
+    dispatcher.add_handler(CallbackQueryHandler(start_zakaz, pattern='^zakaz'))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Посмотреть всю коллекцию)$'), show_catalog_flower))
 
     updater.start_polling()
