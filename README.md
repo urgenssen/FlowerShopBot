@@ -1,4 +1,16 @@
-# Get_forecast_from_terminal
+# FLOWER SHOP TELEGRAM BOT
+
+## '.env' must include
+```commandline
+SECRET_KEY=
+DEBUG=True
+ALLOWED_HOSTS=
+DATABASE=sqlite:///db.sqlite3
+TG_TOKEN=
+```
+
+
+
 The script makes short links using API of [bit.ly](https://bit.ly) and writes it in terminal by user's query or counts total clicks on short links by user's query.
 
 # How to start
