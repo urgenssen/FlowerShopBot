@@ -51,7 +51,12 @@ def cancel(update: Update, context: CallbackContext) -> None:
 
 
 def another_event(update: Update, context: CallbackContext) -> None:
-    pass
+    update.message.reply_text(
+        text=(
+            'Введите свое событие:'
+        ),
+    reply_markup=ReplyKeyboardRemove()
+    )
 
 
 def send_flower_version(update: Update, context: CallbackContext) -> None:
@@ -59,12 +64,12 @@ def send_flower_version(update: Update, context: CallbackContext) -> None:
     price = update.message.text
     context.user_data['price'] = price
     event = context.user_data.get('event')
-
+    # TODO запрос к базе для выбора варианта
     update.message.reply_text(
         text=(
             f'Запрос: \n'
             f'Категория: {event}\n'
-            f'Цена {price}'
+            f'Цена: {price}'
         ),
     reply_markup=ReplyKeyboardRemove()
     )
@@ -105,6 +110,11 @@ if __name__ == '__main__':
     dispatcher.add_handler(MessageHandler(Filters.text(EVENT_BUTTONS), price_request))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Другой повод)$'), another_event))
     dispatcher.add_handler(MessageHandler(Filters.text(PRICE_BUTTONS), send_flower_version))
+    dispatcher.add_handler(MessageHandler(
+        Filters.text &
+        (~Filters.command) &
+        (~Filters.text(EVENT_BUTTONS)) &
+         (~Filters.text(PRICE_BUTTONS)), price_request))
     dispatcher.add_handler(CommandHandler('cancel', cancel))
 
     updater.start_polling()
