@@ -1,8 +1,10 @@
 import os
 import logging
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import (
+    Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
+)
 from telegram.ext import (
-    Updater, CommandHandler, ConversationHandler,
+    Updater, CommandHandler, ConversationHandler, CallbackQueryHandler,
     MessageHandler, Filters, CallbackContext, Defaults,
 )
 from telegram.constants import PARSEMODE_MARKDOWN_V2
@@ -50,7 +52,7 @@ def cancel(update: Update, context: CallbackContext) -> None:
     )
 
 
-def another_event(update: Update, context: CallbackContext) -> None:
+def other_event(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(
         text=(
             'Введите свое событие:'
@@ -59,19 +61,62 @@ def another_event(update: Update, context: CallbackContext) -> None:
     )
 
 
-def send_flower_version(update: Update, context: CallbackContext) -> None:
+def show_relevant_flower(update: Update, context: CallbackContext) -> None:
 
     price = update.message.text
     context.user_data['price'] = price
     event = context.user_data.get('event')
     # TODO запрос к базе для выбора варианта
+
+    keyboard = [[InlineKeyboardButton('Заказать', callback_data='zakaz')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
     update.message.reply_text(
         text=(
             f'Запрос: \n'
             f'Категория: {event}\n'
             f'Цена: {price}'
         ),
-    reply_markup=ReplyKeyboardRemove()
+    reply_markup=reply_markup
+    )
+
+    option_keyboard = [['Заказать консультацию', 'Посмотреть всю коллекцию']]
+    reply_markup = ReplyKeyboardMarkup(option_keyboard, resize_keyboard=True)
+    update.message.reply_text(
+        text=(
+            '*'
+            'Хотите что\-то еще более уникальное?\n'
+            'Подберите другой букет из нашей коллекции или закажите консультацию флориста'
+            '*'
+        ),
+    reply_markup=reply_markup
+    )
+
+
+def show_catalog_flower(update: Update, context: CallbackContext) -> None:
+
+    # TODO запрос к базе для выбора варианта
+
+    keyboard = [[InlineKeyboardButton('Заказать', callback_data='zakaz')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    update.message.reply_text(
+        text=(
+            f'Другой букет из каталога'
+        ),
+    reply_markup=reply_markup
+    )
+
+    option_keyboard = [['Заказать консультацию', 'Посмотреть всю коллекцию']]
+    reply_markup = ReplyKeyboardMarkup(option_keyboard, resize_keyboard=True)
+    update.message.reply_text(
+        text=(
+            '*'
+            'Хотите что\-то еще более уникальное?\n'
+            'Подберите другой букет из нашей коллекции или закажите консультацию флориста'
+            '*'
+        ),
+    reply_markup=reply_markup
     )
 
 
@@ -87,6 +132,9 @@ def price_request(update: Update, context: CallbackContext) -> None:
         ),
     reply_markup=reply_markup
     )
+
+def start_zakaz(update: Update, context: CallbackContext):
+    pass
 
 
 if __name__ == '__main__':
@@ -108,14 +156,17 @@ if __name__ == '__main__':
 
     dispatcher.add_handler(CommandHandler('start', start))
     dispatcher.add_handler(MessageHandler(Filters.text(EVENT_BUTTONS), price_request))
-    dispatcher.add_handler(MessageHandler(Filters.regex('^(Другой повод)$'), another_event))
-    dispatcher.add_handler(MessageHandler(Filters.text(PRICE_BUTTONS), send_flower_version))
+    dispatcher.add_handler(MessageHandler(Filters.regex('^(Другой повод)$'), other_event))
+    dispatcher.add_handler(MessageHandler(Filters.text(PRICE_BUTTONS), show_relevant_flower))
     dispatcher.add_handler(MessageHandler(
         Filters.text &
         (~Filters.command) &
         (~Filters.text(EVENT_BUTTONS)) &
-         (~Filters.text(PRICE_BUTTONS)), price_request))
+        (~Filters.text(PRICE_BUTTONS)) &
+        (~Filters.regex('^(Посмотреть всю коллекцию)$')), price_request))
     dispatcher.add_handler(CommandHandler('cancel', cancel))
+    dispatcher.add_handler(CallbackQueryHandler(start_zakaz, pattern='zakaz'))
+    dispatcher.add_handler(MessageHandler(Filters.regex('^(Посмотреть всю коллекцию)$'), show_catalog_flower))
 
     updater.start_polling()
     updater.idle()
