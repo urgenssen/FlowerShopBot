@@ -121,6 +121,7 @@ celerybeat.pid
 
 # Environments
 flowershop/.env
+.env
 .venv
 env/
 venv/
