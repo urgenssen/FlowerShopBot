@@ -1,7 +1,8 @@
 import os
 import logging
 from telegram import (
-    Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
+    Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton,
+    InlineKeyboardMarkup, KeyboardButton
 )
 from telegram.ext import (
     Updater, CommandHandler, ConversationHandler, CallbackQueryHandler,
@@ -134,6 +135,41 @@ def price_request(update: Update, context: CallbackContext) -> int:
     return PRICE
 
 
+def phonenumber_request(update: Update, context: CallbackContext) -> None:
+
+    context.user_data['event'] = update.message.text
+
+    keyboard = [[KeyboardButton('Отправить номер телефона', request_contact=True)]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+    update.message.reply_text(
+        text=(
+            'Укажите номер телефона, и наш флорист перезвонит вам в течение 20 минут.'
+        ),
+    reply_markup=reply_markup
+    )
+
+
+def florist_answer(update: Update, context: CallbackContext) -> None:
+
+    phone_number = update.message.text
+    if not phone_number:
+        phone_number = update.message.contact.phone_number
+    phone_number = phone_number.replace('+', '')
+
+    context.user_data['phone_number'] = phone_number
+
+    option_keyboard = [['Заказать консультацию', 'Посмотреть всю коллекцию']]
+    reply_markup = ReplyKeyboardMarkup(option_keyboard, resize_keyboard=True)
+
+    update.message.reply_text(
+        text=(
+            'Флорист скоро свяжется с вами.'
+            'А пока можете присмотреть что-нибудь из готовой коллекции.'
+        ),
+    reply_markup=reply_markup
+    )
+
+
 def start_zakaz(update: Update, context: CallbackContext):
     pass
 
@@ -151,8 +187,8 @@ if __name__ == '__main__':
     load_dotenv()
     bot_token = os.environ['TG_TOKEN']
 
-    defaults = Defaults(parse_mode=PARSEMODE_MARKDOWN_V2)
-    updater = Updater(token=bot_token, defaults=defaults)
+    # defaults = Defaults(parse_mode=PARSEMODE_MARKDOWN_V2)
+    updater = Updater(token=bot_token)
     dispatcher = updater.dispatcher
 
     other_event_handler = ConversationHandler(
@@ -175,6 +211,14 @@ if __name__ == '__main__':
     dispatcher.add_handler(CommandHandler('cancel', cancel))
     dispatcher.add_handler(CallbackQueryHandler(start_zakaz, pattern='^zakaz'))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Посмотреть всю коллекцию)$'), show_catalog_flower))
+    dispatcher.add_handler(MessageHandler(Filters.regex('^(Заказать консультацию)$'), phonenumber_request))
+    # regex номера телефона '^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$'
+    # (Источник: https://habr.com/ru/post/110731/)
+    dispatcher.add_handler(
+        MessageHandler(
+            Filters.regex('^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$') | Filters.contact,
+            florist_answer)
+    )
 
     updater.start_polling()
     updater.idle()
