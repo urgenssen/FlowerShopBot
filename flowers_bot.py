@@ -47,7 +47,7 @@ def start(update: Update, context: CallbackContext) -> None:
 def cancel(update: Update, context: CallbackContext) -> int:
     update.message.reply_text(
         text=(
-            'До свидания, ждем следующего заказа'
+            'До свидания, ждем следующего заказа.'
         ),
     reply_markup=ReplyKeyboardRemove()
     )
@@ -90,7 +90,7 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
     update.message.reply_text(
         text=(
             'Хотите что\-то еще более уникальное?\n'
-            'Подберите другой букет из нашей коллекции или закажите консультацию флориста'
+            'Подберите другой букет из нашей коллекции или закажите консультацию флориста.'
         ),
     reply_markup=reply_markup
     )
@@ -115,7 +115,7 @@ def show_catalog_flower(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(
         text=(
             'Хотите что\-то еще более уникальное?\n'
-            'Подберите другой букет из нашей коллекции или закажите консультацию флориста'
+            'Подберите другой букет из нашей коллекции или закажите консультацию флориста.'
         ),
     )
 
