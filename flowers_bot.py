@@ -8,13 +8,15 @@ from telegram.ext import (
     Updater, CommandHandler, ConversationHandler, CallbackQueryHandler,
     MessageHandler, Filters, CallbackContext, Defaults,
 )
-from telegram.constants import PARSEMODE_MARKDOWN_V2
+# from flowershopapp.models import User, Bouquet, Category, Order
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
 EVENT_BUTTONS = ['День рождения', 'Свадьба', 'Школа', 'Без повода'] # TODO выбор категорий из базы данных?
-PRICE_BUTTONS = ['500', '1000', '2000', 'Больше', 'Не важно']
+# EVENT_BUTTONS = [category.name for category in Category.objects.all()]
+
+PRICE_BUTTONS = ['1000', '3000', '5000', 'Больше', 'Не важно']
 
 OTHER_EVENT, PRICE = range(2)
 
@@ -60,7 +62,6 @@ def other_event(update: Update, context: CallbackContext) -> int:
         text=(
             'Введите свое событие:'
         ),
-    # reply_markup=ReplyKeyboardRemove()
     )
 
     return OTHER_EVENT
@@ -89,7 +90,7 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
     reply_markup = ReplyKeyboardMarkup(option_keyboard, resize_keyboard=True)
     update.message.reply_text(
         text=(
-            'Хотите что\-то еще более уникальное?\n'
+            'Хотите что-то еще более уникальное?\n'
             'Подберите другой букет из нашей коллекции или закажите консультацию флориста.'
         ),
     reply_markup=reply_markup
@@ -114,7 +115,7 @@ def show_catalog_flower(update: Update, context: CallbackContext) -> None:
 
     update.message.reply_text(
         text=(
-            'Хотите что\-то еще более уникальное?\n'
+            'Хотите что-то еще более уникальное?\n'
             'Подберите другой букет из нашей коллекции или закажите консультацию флориста.'
         ),
     )
@@ -158,8 +159,8 @@ def florist_answer(update: Update, context: CallbackContext) -> None:
 
     context.user_data['phone_number'] = phone_number
 
-    option_keyboard = [['Заказать консультацию', 'Посмотреть всю коллекцию']]
-    reply_markup = ReplyKeyboardMarkup(option_keyboard, resize_keyboard=True)
+    event_keyboard = build_menu(EVENT_BUTTONS, 2, footer_buttons='Другой повод')
+    reply_markup = ReplyKeyboardMarkup(event_keyboard, resize_keyboard=True, one_time_keyboard=True)
 
     update.message.reply_text(
         text=(
@@ -170,9 +171,51 @@ def florist_answer(update: Update, context: CallbackContext) -> None:
     )
 
 
-def start_zakaz(update: Update, context: CallbackContext):
-    pass
+def start_chekout_order(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+    chat_id = query.message.chat_id
 
+    context.user_data['id'] = update.effective_user.id
+    print(context.user_data)
+
+    if context.user_data['id'] == 104252299:
+        update.effective_user.bot.send_message (
+            chat_id=chat_id,
+            text=(
+                'Введите адрес доставки:'
+            ),
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return 1
+    else:
+        update.effective_user.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                'Введите ФИО:'
+            ),
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return 2
+
+
+def confirm_agreement(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+    chat_id = query.message.chat_id
+
+    context.user_data['id'] = update.effective_user.id
+    print(context.user_data)
+
+    agree_keyboard = [['Согласен', 'Не согласен']]
+    reply_markup = ReplyKeyboardMarkup(agree_keyboard, resize_keyboard=True)
+
+    update.effective_user.bot.send_document(
+        chat_id=chat_id,
+        document=open('soglasie.pdf', 'rb'),
+        caption='Для оформления заказа требуется подтвердить согласие на обработку персональных данных',
+        reply_markup=reply_markup
+)
 
 if __name__ == '__main__':
 
@@ -204,12 +247,13 @@ if __name__ == '__main__':
         fallbacks=[CommandHandler('cancel', cancel)],
     )
 
+
     dispatcher.add_handler(CommandHandler('start', start))
     dispatcher.add_handler(MessageHandler(Filters.text(EVENT_BUTTONS), price_request))
     dispatcher.add_handler(other_event_handler)
     dispatcher.add_handler(MessageHandler(Filters.text(PRICE_BUTTONS), show_relevant_flower))
     dispatcher.add_handler(CommandHandler('cancel', cancel))
-    dispatcher.add_handler(CallbackQueryHandler(start_zakaz, pattern='^zakaz'))
+    dispatcher.add_handler(CallbackQueryHandler(confirm_agreement, pattern='^zakaz'))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Посмотреть всю коллекцию)$'), show_catalog_flower))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Заказать консультацию)$'), phonenumber_request))
     # regex номера телефона '^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$'
