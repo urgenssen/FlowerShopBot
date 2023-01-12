@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 EVENT_BUTTONS = ['День рождения', 'Свадьба', 'Школа', 'Без повода'] # TODO выбор категорий из базы данных?
 PRICE_BUTTONS = ['500', '1000', '2000', 'Больше', 'Не важно']
 
+OTHER_EVENT, PRICE = range(2)
+
 def build_menu(buttons, n_cols,
                header_buttons=None,
                footer_buttons=None):
@@ -41,7 +43,7 @@ def start(update: Update, context: CallbackContext) -> None:
     )
 
 
-def cancel(update: Update, context: CallbackContext) -> None:
+def cancel(update: Update, context: CallbackContext) -> int:
     update.message.reply_text(
         text=(
             'До свидания, ждем следующего заказа'
@@ -49,8 +51,10 @@ def cancel(update: Update, context: CallbackContext) -> None:
     reply_markup=ReplyKeyboardRemove()
     )
 
+    return ConversationHandler.END
 
-def other_event(update: Update, context: CallbackContext) -> None:
+
+def other_event(update: Update, context: CallbackContext) -> int:
     update.message.reply_text(
         text=(
             'Введите свое событие:'
@@ -58,8 +62,10 @@ def other_event(update: Update, context: CallbackContext) -> None:
     # reply_markup=ReplyKeyboardRemove()
     )
 
+    return OTHER_EVENT
 
-def show_relevant_flower(update: Update, context: CallbackContext) -> None:
+
+def show_relevant_flower(update: Update, context: CallbackContext) -> int:
 
     price = update.message.text
     context.user_data['price'] = price
@@ -88,6 +94,8 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> None:
     reply_markup=reply_markup
     )
 
+    return ConversationHandler.END
+
 
 def show_catalog_flower(update: Update, context: CallbackContext) -> None:
 
@@ -111,7 +119,7 @@ def show_catalog_flower(update: Update, context: CallbackContext) -> None:
     )
 
 
-def price_request(update: Update, context: CallbackContext) -> None:
+def price_request(update: Update, context: CallbackContext) -> int:
 
     context.user_data['event'] = update.message.text
 
@@ -123,6 +131,8 @@ def price_request(update: Update, context: CallbackContext) -> None:
         ),
     reply_markup=reply_markup
     )
+    return PRICE
+
 
 def start_zakaz(update: Update, context: CallbackContext):
     pass
@@ -139,22 +149,29 @@ if __name__ == '__main__':
     logger.info('Запущен FlowerShopBot')
 
     load_dotenv()
-    bot_token = os.environ['TG_BOT_TOKEN']
+    bot_token = os.environ['TG_TOKEN']
 
     defaults = Defaults(parse_mode=PARSEMODE_MARKDOWN_V2)
     updater = Updater(token=bot_token, defaults=defaults)
     dispatcher = updater.dispatcher
 
+    other_event_handler = ConversationHandler(
+        entry_points=[MessageHandler(Filters.regex('^(Другой повод)$'), other_event)],
+        states={
+            OTHER_EVENT: [MessageHandler(Filters.text & (~Filters.command), price_request)
+            ],
+
+            PRICE: [
+                MessageHandler(Filters.text(PRICE_BUTTONS), show_relevant_flower)
+            ],
+        },
+        fallbacks=[CommandHandler('cancel', cancel)],
+    )
+
     dispatcher.add_handler(CommandHandler('start', start))
     dispatcher.add_handler(MessageHandler(Filters.text(EVENT_BUTTONS), price_request))
-    dispatcher.add_handler(MessageHandler(Filters.regex('^(Другой повод)$'), other_event))
+    dispatcher.add_handler(other_event_handler)
     dispatcher.add_handler(MessageHandler(Filters.text(PRICE_BUTTONS), show_relevant_flower))
-    dispatcher.add_handler(MessageHandler(
-        Filters.text &
-        (~Filters.command) &
-        (~Filters.text(EVENT_BUTTONS)) &
-        (~Filters.text(PRICE_BUTTONS)) &
-        (~Filters.regex('^(Посмотреть всю коллекцию)$')), price_request))
     dispatcher.add_handler(CommandHandler('cancel', cancel))
     dispatcher.add_handler(CallbackQueryHandler(start_zakaz, pattern='^zakaz'))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Посмотреть всю коллекцию)$'), show_catalog_flower))
