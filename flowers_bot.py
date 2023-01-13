@@ -31,6 +31,7 @@ OTHER_EVENT, PRICE = range(2)
 USER_NAME, USER_PHONE, USER_ADDRESS, USER_DELIVERY, ORDER_CONFIRM = range(2, 7)
 PHONE_NUMBER = 7
 
+
 def build_menu(buttons, n_cols,
                header_buttons=None,
                footer_buttons=None):
@@ -124,11 +125,15 @@ def show_catalog_flower(update: Update, context: CallbackContext) -> None:
     reply_markup=reply_markup
     )
 
+    option_keyboard = [['Заказать консультацию', 'Посмотреть всю коллекцию']]
+    reply_markup = ReplyKeyboardMarkup(option_keyboard, resize_keyboard=True)
+
     update.message.reply_text(
         text=(
             'Хотите что-то еще более уникальное?\n'
             'Подберите другой букет из нашей коллекции или закажите консультацию флориста.'
         ),
+    reply_markup=reply_markup
     )
 
 
@@ -275,7 +280,6 @@ def order_confirmation(update: Update, context: CallbackContext) -> int:
     delivery = update.message.text
     context.user_data['delivery'] = delivery
 
-
     option_keyboard = [['Да, все верно!', 'Я передумал']]
     reply_markup = ReplyKeyboardMarkup(option_keyboard, resize_keyboard=True)
 
@@ -413,6 +417,7 @@ if __name__ == '__main__':
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Посмотреть всю коллекцию)$'), show_catalog_flower))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Да, все верно!)$'), order_to_work))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Я передумал)$'), start))
+    dispatcher.add_handler(MessageHandler(Filters.regex('^(Не согласен)$'), start))
 
     updater.start_polling()
     updater.idle()
