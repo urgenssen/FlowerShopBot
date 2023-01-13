@@ -1,8 +1,8 @@
 from flowershopapp.models import User, Bouquet, Category, Order
 
 
-def get_categories_list():
-    return list(Category.objects.all())
+def get_categories():
+    return [category.name for category in Category.objects.all()]
 
 
 def is_user_exist(tg_user_id):

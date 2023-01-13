@@ -15,12 +15,12 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'flowershop.settings'
 django.setup()
 
 from environs import Env
-from interface import get_categories_list
+from interface import get_categories
 
 logger = logging.getLogger(__name__)
 
-EVENT_BUTTONS = ['День рождения', 'Свадьба', 'Школа', 'Без повода'] # TODO выбор категорий из базы данных?
-# EVENT_BUTTONS = get_categories_list()
+# EVENT_BUTTONS = ['День рождения', 'Свадьба', 'Школа', 'Без повода'] # TODO выбор категорий из базы данных?
+EVENT_BUTTONS = get_categories()
 
 PRICE_BUTTONS = ['1000', '3000', '5000', '10000', 'Не важно']
 
@@ -37,12 +37,16 @@ def build_menu(buttons, n_cols,
     if header_buttons:
         menu.insert(0, [header_buttons])
     if footer_buttons:
-        menu.append([footer_buttons])
+        if len(menu[-1]) == n_cols:
+            menu.append([footer_buttons])
+        else:
+            menu[-1].append(footer_buttons)
 
     return menu
 
 
 def start(update: Update, context: CallbackContext) -> None:
+    EVENT_BUTTONS = get_categories()
 
     event_keyboard = build_menu(EVENT_BUTTONS, 2, footer_buttons='Другой повод')
     reply_markup = ReplyKeyboardMarkup(event_keyboard, resize_keyboard=True, one_time_keyboard=True)
@@ -75,6 +79,21 @@ def other_event(update: Update, context: CallbackContext) -> int:
     )
 
     return OTHER_EVENT
+
+
+def price_request(update: Update, context: CallbackContext) -> int:
+
+    context.user_data['event'] = update.message.text
+
+    price_keyboard = build_menu(PRICE_BUTTONS, 3)
+    reply_markup = ReplyKeyboardMarkup(price_keyboard, resize_keyboard=True, one_time_keyboard=True)
+    update.message.reply_text(
+        text=(
+            'На какую сумму рассчитываете?'
+        ),
+    reply_markup=reply_markup
+    )
+    return PRICE
 
 
 def show_relevant_flower(update: Update, context: CallbackContext) -> int:
@@ -133,21 +152,6 @@ def show_catalog_flower(update: Update, context: CallbackContext) -> None:
         ),
     reply_markup=reply_markup
     )
-
-
-def price_request(update: Update, context: CallbackContext) -> int:
-
-    context.user_data['event'] = update.message.text
-
-    price_keyboard = build_menu(PRICE_BUTTONS, 3)
-    reply_markup = ReplyKeyboardMarkup(price_keyboard, resize_keyboard=True, one_time_keyboard=True)
-    update.message.reply_text(
-        text=(
-            'На какую сумму рассчитываете?'
-        ),
-    reply_markup=reply_markup
-    )
-    return PRICE
 
 
 def phonenumber_request(update: Update, context: CallbackContext) -> int:
