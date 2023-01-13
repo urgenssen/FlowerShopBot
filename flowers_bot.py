@@ -136,8 +136,6 @@ def price_request(update: Update, context: CallbackContext) -> int:
 
 def phonenumber_request(update: Update, context: CallbackContext) -> None:
 
-    context.user_data['event'] = update.message.text
-
     keyboard = [[KeyboardButton('Отправить номер телефона', request_contact=True)]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
     update.message.reply_text(
