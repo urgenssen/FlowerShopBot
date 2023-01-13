@@ -8,13 +8,11 @@ from telegram.ext import (
     Updater, CommandHandler, ConversationHandler, CallbackQueryHandler,
     MessageHandler, Filters, CallbackContext, Defaults,
 )
-# from flowershopapp.models import User, Bouquet, Category, Order
-from dotenv import load_dotenv
+from environs import Env
 
 logger = logging.getLogger(__name__)
 
 EVENT_BUTTONS = ['День рождения', 'Свадьба', 'Школа', 'Без повода'] # TODO выбор категорий из базы данных?
-# EVENT_BUTTONS = [category.name for category in Category.objects.all()]
 
 PRICE_BUTTONS = ['1000', '3000', '5000', 'Больше', 'Не важно']
 
@@ -144,7 +142,7 @@ def phonenumber_request(update: Update, context: CallbackContext) -> None:
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
     update.message.reply_text(
         text=(
-            'Укажите номер телефона, и наш флорист перезвонит вам в течение 20 минут.'
+            'Укажите номер телефона в формате 7ХХХХХХХХХХ, и наш флорист перезвонит вам в течение 20 минут.'
         ),
     reply_markup=reply_markup
     )
@@ -168,6 +166,19 @@ def florist_answer(update: Update, context: CallbackContext) -> None:
             'А пока можете присмотреть что-нибудь из готовой коллекции.'
         ),
     reply_markup=reply_markup
+    )
+
+    # отправка уведомления флористу
+    florist_id = context.bot_data['florist_id']
+    user_data = context.user_data
+    update.effective_user.bot.send_message(
+        chat_id=florist_id,
+        text=(
+            'Заявка на обратный звонок для флориста!\n\n'
+            f'Номер телефона: {phone_number}\n'
+            f'Категория: {user_data["event"]}\n'
+            f'Цена: {user_data["price"]}'
+        ),
     )
 
 
@@ -224,15 +235,20 @@ if __name__ == '__main__':
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO
     )
-
     logger.info('Запущен FlowerShopBot')
 
-    load_dotenv()
-    bot_token = os.environ['TG_TOKEN']
+    env = Env()
+    env.read_env()
+    bot_token = env.str("TG_TOKEN")
+    florist_id = env('FLORIST_ID')
+    service_id = env('SERVICE_ID')
 
-    # defaults = Defaults(parse_mode=PARSEMODE_MARKDOWN_V2)
     updater = Updater(token=bot_token)
     dispatcher = updater.dispatcher
+    dispatcher.bot_data = {
+        'florist_id': florist_id,
+        'service_id': service_id
+    }
 
     other_event_handler = ConversationHandler(
         entry_points=[MessageHandler(Filters.regex('^(Другой повод)$'), other_event)],
