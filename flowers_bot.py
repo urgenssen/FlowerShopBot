@@ -1,5 +1,7 @@
 import os
 import logging
+import django
+
 from telegram import (
     Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton,
     InlineKeyboardMarkup, KeyboardButton
@@ -8,6 +10,12 @@ from telegram.ext import (
     Updater, CommandHandler, ConversationHandler, CallbackQueryHandler,
     MessageHandler, Filters, CallbackContext, Defaults,
 )
+
+os.environ['DJANGO_SETTINGS_MODULE'] = 'flowershop.flowershop.settings'
+django.setup()
+
+# from flowershop.flowershop.settings import TG_TOKEN
+
 from environs import Env
 
 logger = logging.getLogger(__name__)
