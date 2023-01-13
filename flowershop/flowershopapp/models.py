@@ -12,10 +12,14 @@ class Category(models.Model):
 
 
 class User(models.Model):
+    tg_user_id = models.CharField(
+        'Идентификатор пользователя Telegram',
+        max_length=200,
+        blank=True,
+    )
     name = models.CharField(
         'Имя пользователя',
         max_length=200,
-        db_index=True,
     )
     phone_number = models.CharField(
         'Номер телефона пользователя (без "+7")',
