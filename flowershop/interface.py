@@ -7,7 +7,7 @@ def get_categories_list():
 
 def is_user_exist(tg_user_id):
     if User.objects.filter(tg_user_id=tg_user_id).exists():
-        user = User.objects.get(tg_user_id=tg_user_id)
+        user = User.objects.get(tg_user_id=tg_user_id).order_by('-price')
         return user.tg_user_id, user.phone_number, user.name
 
 
