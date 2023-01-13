@@ -1,4 +1,4 @@
-from flowershop.flowershopapp.models import User, Bouquet, Category, Order
+from flowershopapp.models import User, Bouquet, Category, Order
 
 
 def get_categories_list():
