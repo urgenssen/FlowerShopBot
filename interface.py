@@ -30,3 +30,7 @@ def get_bouquets_by_filter(category, price):
     bouquets = Bouquet.objects.filter(categories__name=category).filter(price__lte=price).order_by('-price')
     return bouquets
 
+
+def get_bouquets(price=100000):
+    bouquets = Bouquet.objects.filter(price__lte=price).order_by('-price')
+    return bouquets

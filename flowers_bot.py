@@ -1,6 +1,8 @@
 import os
 import logging
 import django
+os.environ['DJANGO_SETTINGS_MODULE'] = 'flowershop.settings'
+django.setup()
 
 from telegram import (
     Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton,
@@ -11,12 +13,11 @@ from telegram.ext import (
     MessageHandler, Filters, CallbackContext,
 )
 
-os.environ['DJANGO_SETTINGS_MODULE'] = 'flowershop.settings'
-django.setup()
-
+from itertools import cycle
 from environs import Env
 from interface import (
-    get_categories, get_bouquets_by_filter, add_category, get_user, add_user
+    get_categories, get_bouquets_by_filter, get_bouquets,
+    add_category, get_user, add_user
 )
 
 logger = logging.getLogger(__name__)
@@ -110,23 +111,27 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
     price = update.message.text
     context.user_data['price'] = price
     event = context.user_data.get('event')
-
+    if price == 'Не важно':
+        price = 100000
     bouquets = get_bouquets_by_filter(event, price)
     print(bouquets)
+
     if bouquets:
-        relevant = bouquets[0]
-        print(relevant.price)
+        context.user_data['bouquets'] = cycle(bouquets)
+        context.user_data['index'] = 1
+        relevant_bouquet = bouquets[0]
+
         keyboard = [[InlineKeyboardButton('Заказать', callback_data='zakaz')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         user_id = update.message.from_user.id
         update.effective_user.bot.send_photo(
             chat_id=user_id,
-            photo= relevant.img_url,
+            photo= relevant_bouquet.img_url,
             caption=(
-                f'{relevant.name}\n\n'
-                f'Описание: {relevant.text}\n'
-                f'Состав: {relevant.content}\n\n'
-                f'Цена: {relevant.price}'
+                f'{relevant_bouquet.name}\n\n'
+                f'Описание: {relevant_bouquet.text}\n'
+                f'Состав: {relevant_bouquet.content}\n\n'
+                f'Цена: {relevant_bouquet.price}'
             ),
         reply_markup=reply_markup
         )
@@ -153,16 +158,32 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
 
 def show_catalog_flower(update: Update, context: CallbackContext) -> None:
 
-    # TODO запрос к базе для выбора варианта
+    if context.user_data.get('bouquets'):
+        for index, bouquet in enumerate(context.user_data.get('bouquets')):
+            if index == context.user_data['index']:
+                new_bouquet = bouquet
+                context.user_data['index'] = index + 1
+                break
+    else:
+        bouquets = get_bouquets()
+        context.user_data['bouquets'] = cycle(bouquets)
+        context.user_data['index'] = 1
+        new_bouquet = bouquets[0]
 
     keyboard = [[InlineKeyboardButton('Заказать', callback_data='zakaz')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    update.message.reply_text(
-        text=(
-            f'Другой букет из каталога'
+    user_id = update.message.from_user.id
+    update.effective_user.bot.send_photo(
+        chat_id=user_id,
+        photo=new_bouquet.img_url,
+        caption=(
+            f'{new_bouquet.name}\n\n'
+            f'Описание: {new_bouquet.text}\n'
+            f'Состав: {new_bouquet.content}\n\n'
+            f'Цена: {new_bouquet.price}'
         ),
-    reply_markup=reply_markup
+        reply_markup=reply_markup
     )
 
     option_keyboard = [['Заказать консультацию', 'Посмотреть всю коллекцию']]
