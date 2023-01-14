@@ -14,16 +14,17 @@ def get_user(tg_user_id):
     try:
         user = User.objects.get(tg_user_id=tg_user_id)
     except User.DoesNotExist:
-        return {}
-    return {
-        'user_id': user.tg_user_id,
-        'phone_number': user.phone_number,
-        'fullname': user.name
-    }
+        return None
+
+    return user
 
 
 def add_user(tg_user_id, phone_number, name):
-    User.objects.create(tg_user_id=tg_user_id, name=name, phone_number=phone_number)
+    User.objects.update_or_create(
+        tg_user_id=tg_user_id,
+        name=name,
+        phone_number=phone_number,
+    )
 
 
 def get_bouquets_by_filter(category, price):
@@ -34,3 +35,7 @@ def get_bouquets_by_filter(category, price):
 def get_bouquets(price=100000):
     bouquets = Bouquet.objects.filter(price__lte=price).order_by('-price')
     return bouquets
+
+def create_order(user_data):
+    bouquet = Bouquet.objects.get(user_data['bouquet_id']) # ссылка на выбранный букет
+    # TODO создать заказ

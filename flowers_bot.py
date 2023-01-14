@@ -121,7 +121,7 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
         context.user_data['index'] = 1
         relevant_bouquet = bouquets[0]
 
-        keyboard = [[InlineKeyboardButton('Заказать', callback_data='zakaz')]]
+        keyboard = [[InlineKeyboardButton('Заказать', callback_data=f'zakaz_{relevant_bouquet.id}')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         user_id = update.message.from_user.id
         update.effective_user.bot.send_photo(
@@ -166,11 +166,12 @@ def show_catalog_flower(update: Update, context: CallbackContext) -> None:
                 break
     else:
         bouquets = get_bouquets()
+        print(bouquets.value())
         context.user_data['bouquets'] = cycle(bouquets)
         context.user_data['index'] = 1
         new_bouquet = bouquets[0]
 
-    keyboard = [[InlineKeyboardButton('Заказать', callback_data='zakaz')]]
+    keyboard = [[InlineKeyboardButton('Заказать', callback_data=f'zakaz_{new_bouquet.id}')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     user_id = update.message.from_user.id
@@ -199,7 +200,7 @@ def show_catalog_flower(update: Update, context: CallbackContext) -> None:
 
 
 def phonenumber_request(update: Update, context: CallbackContext) -> int:
-
+    #TODO как пропустить шаг если клиент есть в БД
     if not context.user_data['user']:
         keyboard = [[KeyboardButton('Отправить номер телефона', request_contact=True)]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
@@ -221,15 +222,21 @@ def phonenumber_request(update: Update, context: CallbackContext) -> int:
 
 def userphone_request(update: Update, context: CallbackContext) -> int:
 
-    keyboard = [[KeyboardButton('Отправить номер телефона', request_contact=True)]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-    update.message.reply_text(
-        text=(
-            'Укажите номер телефона в формате 7ХХХХХХХХХХ, и наш флорист перезвонит вам в течение 20 минут.'
-        ),
-    reply_markup=reply_markup
-    )
-    return USER_ADDRESS
+    context.user_data['fullname'] = update.message.text
+
+    if not context.user_data['user']:
+
+        keyboard = [[KeyboardButton('Отправить номер телефона', request_contact=True)]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+        update.message.reply_text(
+            text=(
+                'Укажите номер телефона в формате 7ХХХХХХХХХХ, и наш флорист перезвонит вам в течение 20 минут.'
+            ),
+        reply_markup=reply_markup
+        )
+        return USER_ADDRESS
+    else:
+        return USER_DELIVERY
 
 
 def florist_answer(update: Update, context: CallbackContext) -> int:
@@ -242,7 +249,7 @@ def florist_answer(update: Update, context: CallbackContext) -> int:
         add_user(tg_user_id=update.message.from_user.id, name='', phone_number=phone_number[1:])
         context.user_data['user'] = get_user(update.message.from_user.id)
     else:
-        phone_number = context.user_data['user']['phone_number']
+        phone_number = context.user_data['user'].phone_number
 
     context.user_data['phone_number'] = phone_number
 
@@ -276,11 +283,9 @@ def start_order_prepare(update: Update, context: CallbackContext):
 
     chat_id = update.message.chat_id
     context.user_data['id'] = chat_id
+    user = context.user_data['user']
 
-    if context.user_data['id'] == 10425229:
-        # TODO данные из БД
-        context.user_data['username'] = 'Иванов Иван Иванович'
-        context.user_data['phone_number'] = '7123456789'
+    if  user and user.name:
 
         update.effective_user.bot.send_message (
             chat_id=chat_id,
@@ -290,6 +295,7 @@ def start_order_prepare(update: Update, context: CallbackContext):
             reply_markup=ReplyKeyboardRemove()
         )
         return USER_ADDRESS
+
     else:
         update.effective_user.bot.send_message(
             chat_id=chat_id,
@@ -338,13 +344,17 @@ def order_confirmation(update: Update, context: CallbackContext) -> int:
 
     delivery = update.message.text
     context.user_data['delivery'] = delivery
+    user_data = context.user_data
 
     option_keyboard = [['Да, все верно!', 'Я передумал']]
     reply_markup = ReplyKeyboardMarkup(option_keyboard, resize_keyboard=True)
 
     update.message.reply_text(
         text=(
-            f'{context.user_data}'
+            'Заявка на доставку!\n\n'
+            f'Адрес: {user_data["address"]}\n'
+            f'Дата и время доставки: {user_data["delivery"]}\n'
+            f'Контактный телефон: {user_data["phone_number"]}'
         ),
     reply_markup=reply_markup
     )
@@ -355,6 +365,8 @@ def order_confirmation(update: Update, context: CallbackContext) -> int:
 def order_to_work(update: Update, context: CallbackContext) -> int:
 
     print(context.user_data)
+    user_data = context.user_data
+    user = context.user_data['user']
 
     update.message.reply_text(
         text=(
@@ -364,6 +376,8 @@ def order_to_work(update: Update, context: CallbackContext) -> int:
         ),
     reply_markup=ReplyKeyboardRemove()
     )
+
+    add_user(tg_user_id=user_data['id'], name=user_data['fullname'], phone_number=user_data['phone_number'])
 
     # отправка уведомления курьерам
     service_id = context.bot_data['service_id']
@@ -378,6 +392,7 @@ def order_to_work(update: Update, context: CallbackContext) -> int:
             f'Контактный телефон: {user_data["phone_number"]}'
         ),
     )
+
     return ConversationHandler.END
 
 
@@ -386,6 +401,7 @@ def confirm_agreement(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
     chat_id = query.message.chat_id
+    context.user_data['bouquet_id'] = query.data.split('_')[-1]
 
     context.user_data['id'] = update.effective_user.id
     print(context.user_data)
