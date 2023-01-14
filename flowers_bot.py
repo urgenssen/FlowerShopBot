@@ -15,7 +15,9 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'flowershop.settings'
 django.setup()
 
 from environs import Env
-from interface import get_categories, get_bouquets_by_filter, add_category
+from interface import (
+    get_categories, get_bouquets_by_filter, add_category, get_user, add_user
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +48,10 @@ def build_menu(buttons, n_cols,
 
 
 def start(update: Update, context: CallbackContext) -> None:
+
     EVENT_BUTTONS = get_categories()
+    context.user_data['user'] = get_user(update.message.from_user.id)
+    print(context.user_data['user'])
 
     event_keyboard = build_menu(EVENT_BUTTONS, 2, footer_buttons='Другой повод')
     reply_markup = ReplyKeyboardMarkup(event_keyboard, resize_keyboard=True, one_time_keyboard=True)
@@ -162,15 +167,23 @@ def show_catalog_flower(update: Update, context: CallbackContext) -> None:
 
 def phonenumber_request(update: Update, context: CallbackContext) -> int:
 
-    keyboard = [[KeyboardButton('Отправить номер телефона', request_contact=True)]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-    update.message.reply_text(
-        text=(
-            'Укажите номер телефона в формате 7ХХХХХХХХХХ, и наш флорист перезвонит вам в течение 20 минут.'
-        ),
-    reply_markup=reply_markup
-    )
-    return PHONE_NUMBER
+    if not context.user_data['user']:
+        keyboard = [[KeyboardButton('Отправить номер телефона', request_contact=True)]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+        update.message.reply_text(
+            text=(
+                'Укажите номер телефона в формате 7ХХХХХХХХХХ, и наш флорист перезвонит вам в течение 20 минут.'
+            ),
+        reply_markup=reply_markup
+        )
+        return PHONE_NUMBER
+    else:
+        update.message.reply_text(
+            text=(
+                'Нашли Ваш номер в базе данных.'
+            ),
+        )
+        return ConversationHandler.END
 
 
 def userphone_request(update: Update, context: CallbackContext) -> int:
@@ -188,10 +201,15 @@ def userphone_request(update: Update, context: CallbackContext) -> int:
 
 def florist_answer(update: Update, context: CallbackContext) -> int:
 
-    phone_number = update.message.text
-    if not phone_number:
-        phone_number = update.message.contact.phone_number
-    phone_number = phone_number.replace('+', '')
+    if not context.user_data['user']:
+        phone_number = update.message.text
+        if not phone_number:
+            phone_number = update.message.contact.phone_number
+        phone_number = phone_number.replace('+', '')
+        add_user(tg_user_id=update.message.from_user.id, name='', phone_number=phone_number[1:])
+        context.user_data['user'] = get_user(update.message.from_user.id)
+    else:
+        phone_number = context.user_data['user']['phone_number']
 
     context.user_data['phone_number'] = phone_number
 
@@ -390,16 +408,21 @@ if __name__ == '__main__':
     order_handler = ConversationHandler(
         entry_points=[MessageHandler(Filters.regex('^(Согласен)$'), start_order_prepare)],
         states={
-            USER_NAME: [MessageHandler(Filters.text & (~Filters.command), userphone_request)
+            USER_NAME: [
+                MessageHandler(Filters.text & (~Filters.command), userphone_request)
             ],
-            USER_PHONE: [MessageHandler(Filters.regex('^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$')
-                               | Filters.contact, address_request)
+            USER_PHONE: [
+                MessageHandler(Filters.regex('^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$'), address_request),
+                MessageHandler(Filters.contact, address_request)
             ],
-            USER_ADDRESS: [MessageHandler(Filters.text & (~Filters.command), address_request)
+            USER_ADDRESS: [
+                MessageHandler(Filters.text & (~Filters.command), address_request)
             ],
-            USER_DELIVERY: [MessageHandler(Filters.text & (~Filters.command), datetime_request)
+            USER_DELIVERY: [
+                MessageHandler(Filters.text & (~Filters.command), datetime_request)
                 ],
-            ORDER_CONFIRM: [MessageHandler(Filters.text & (~Filters.command), order_confirmation)
+            ORDER_CONFIRM: [
+                MessageHandler(Filters.text & (~Filters.command), order_confirmation)
                             ],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
@@ -408,8 +431,10 @@ if __name__ == '__main__':
     florist_handler = ConversationHandler(
         entry_points=[MessageHandler(Filters.regex('^(Заказать консультацию)$'), phonenumber_request)],
         states={
-            PHONE_NUMBER: [MessageHandler(Filters.regex('^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$')
-                               | Filters.contact, florist_answer)]
+            PHONE_NUMBER: [
+                MessageHandler(Filters.regex('^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$'), florist_answer),
+                MessageHandler(Filters.contact, florist_answer)
+            ]
         },
         fallbacks=[CommandHandler('cancel', cancel)],
     )

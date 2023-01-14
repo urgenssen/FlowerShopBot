@@ -1,4 +1,5 @@
 from flowershopapp.models import User, Bouquet, Category, Order
+from django.shortcuts import get_object_or_404
 
 
 def get_categories():
@@ -9,10 +10,16 @@ def add_category(category):
     Category.objects.update_or_create(name=category)
 
 
-def is_user_exist(tg_user_id):
-    if User.objects.filter(tg_user_id=tg_user_id).exists():
+def get_user(tg_user_id):
+    try:
         user = User.objects.get(tg_user_id=tg_user_id)
-        return user.tg_user_id, user.phone_number, user.name
+    except User.DoesNotExist:
+        return {}
+    return {
+        'user_id': user.tg_user_id,
+        'phone_number': user.phone_number,
+        'fullname': user.name
+    }
 
 
 def add_user(tg_user_id, phone_number, name):
