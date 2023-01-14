@@ -113,18 +113,30 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
 
     bouquets = get_bouquets_by_filter(event, price)
     print(bouquets)
-
-    keyboard = [[InlineKeyboardButton('Заказать', callback_data='zakaz')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    update.message.reply_text(
-        text=(
-            f'Запрос: \n'
-            f'Категория: {event}\n'
-            f'Цена: {price}'
-        ),
-    reply_markup=reply_markup
-    )
+    if bouquets:
+        relevant = bouquets[0]
+        print(relevant.price)
+        keyboard = [[InlineKeyboardButton('Заказать', callback_data='zakaz')]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        user_id = update.message.from_user.id
+        update.effective_user.bot.send_photo(
+            chat_id=user_id,
+            photo= relevant.img_url,
+            caption=(
+                f'{relevant.name}\n\n'
+                f'Описание: {relevant.text}\n'
+                f'Состав: {relevant.content}\n\n'
+                f'Цена: {relevant.price}'
+            ),
+        reply_markup=reply_markup
+        )
+    else:
+        text='К сожалению в указанной категории нет букетов.'
+        reply_markup = InlineKeyboardMarkup([])
+        update.message.reply_text(
+            text=text,
+            reply_markup=reply_markup
+        )
 
     option_keyboard = [['Заказать консультацию', 'Посмотреть всю коллекцию']]
     reply_markup = ReplyKeyboardMarkup(option_keyboard, resize_keyboard=True)
