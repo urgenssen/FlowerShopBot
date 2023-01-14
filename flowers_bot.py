@@ -15,7 +15,7 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'flowershop.settings'
 django.setup()
 
 from environs import Env
-from interface import get_categories
+from interface import get_categories, get_bouquets_by_filter, add_category
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,11 @@ def other_event(update: Update, context: CallbackContext) -> int:
 
 def price_request(update: Update, context: CallbackContext) -> int:
 
-    context.user_data['event'] = update.message.text
+    event = update.message.text
+    context.user_data['event'] = event
+
+    if event not in get_categories():
+        add_category(category=event)
 
     price_keyboard = build_menu(PRICE_BUTTONS, 3)
     reply_markup = ReplyKeyboardMarkup(price_keyboard, resize_keyboard=True, one_time_keyboard=True)
@@ -101,7 +105,9 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
     price = update.message.text
     context.user_data['price'] = price
     event = context.user_data.get('event')
-    # TODO запрос к базе для выбора варианта
+
+    bouquets = get_bouquets_by_filter(event, price)
+    print(bouquets)
 
     keyboard = [[InlineKeyboardButton('Заказать', callback_data='zakaz')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
