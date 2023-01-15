@@ -48,7 +48,7 @@ def build_menu(buttons, n_cols,
     return menu
 
 
-def start(update: Update, context: CallbackContext) -> None:
+def start(update: Update, context: CallbackContext) -> int:
 
     EVENT_BUTTONS = get_categories()
     context.user_data['user'] = get_user(update.message.from_user.id)
@@ -64,6 +64,8 @@ def start(update: Update, context: CallbackContext) -> None:
         ),
     reply_markup=reply_markup
     )
+
+    return ConversationHandler.END
 
 
 def cancel(update: Update, context: CallbackContext) -> int:
@@ -118,7 +120,6 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
 
     if bouquets:
         context.user_data['bouquets'] = cycle(bouquets)
-        context.user_data['index'] = 1
         relevant_bouquet = bouquets[0]
 
         keyboard = [[InlineKeyboardButton('Заказать', callback_data=f'zakaz_{relevant_bouquet.id}')]]
@@ -136,6 +137,11 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
         reply_markup=reply_markup
         )
     else:
+        bouquets = get_bouquets()
+        print(bouquets)
+        context.user_data['bouquets'] = cycle(bouquets)
+        context.user_data['index'] = 0
+
         text='К сожалению в указанной категории нет букетов.'
         reply_markup = InlineKeyboardMarkup([])
         update.message.reply_text(
@@ -159,17 +165,9 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
 def show_catalog_flower(update: Update, context: CallbackContext) -> None:
 
     if context.user_data.get('bouquets'):
-        for index, bouquet in enumerate(context.user_data.get('bouquets')):
-            if index == context.user_data['index']:
-                new_bouquet = bouquet
-                context.user_data['index'] = index + 1
-                break
-    else:
-        bouquets = get_bouquets()
-        print(bouquets.value())
-        context.user_data['bouquets'] = cycle(bouquets)
-        context.user_data['index'] = 1
-        new_bouquet = bouquets[0]
+        for bouquet in context.user_data.get('bouquets'):
+            new_bouquet = bouquet
+            break
 
     keyboard = [[InlineKeyboardButton('Заказать', callback_data=f'zakaz_{new_bouquet.id}')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -337,13 +335,16 @@ def datetime_request(update: Update, context: CallbackContext) -> int:
         ),
     )
 
-    return ORDER_CONFIRM
+    return USER_DELIVERY
 
 
 def order_confirmation(update: Update, context: CallbackContext) -> int:
 
     delivery = update.message.text
     context.user_data['delivery'] = delivery
+    user = context.user_data['user']
+    if user:
+        context.user_data['phone_number'] = user.phone_number
     user_data = context.user_data
 
     option_keyboard = [['Да, все верно!', 'Я передумал']]
@@ -359,7 +360,7 @@ def order_confirmation(update: Update, context: CallbackContext) -> int:
     reply_markup=reply_markup
     )
 
-    return ConversationHandler.END
+    return ORDER_CONFIRM
 
 
 def order_to_work(update: Update, context: CallbackContext) -> int:
@@ -376,9 +377,10 @@ def order_to_work(update: Update, context: CallbackContext) -> int:
         ),
     reply_markup=ReplyKeyboardRemove()
     )
+    if not get_user(tg_user_id=user_data['id']):
+        add_user(tg_user_id=user_data['id'], name=user_data['fullname'], phone_number=user_data['phone_number'])
 
-    add_user(tg_user_id=user_data['id'], name=user_data['fullname'], phone_number=user_data['phone_number'])
-
+    # TODO создать заказ и получить его номер id
     # отправка уведомления курьерам
     service_id = context.bot_data['service_id']
     user_data = context.user_data
@@ -387,6 +389,8 @@ def order_to_work(update: Update, context: CallbackContext) -> int:
         chat_id=service_id,
         text=(
             'Заявка на доставку!\n\n'
+            f'Букет: {user_data["user"].bouquets}\n'
+            f'Номер заказа: (Номер Заказа добавить)'
             f'Адрес: {user_data["address"]}\n'
             f'Дата и время доставки: {user_data["delivery"]}\n'
             f'Контактный телефон: {user_data["phone_number"]}'
@@ -465,13 +469,14 @@ if __name__ == '__main__':
                 MessageHandler(Filters.contact, address_request)
             ],
             USER_ADDRESS: [
-                MessageHandler(Filters.text & (~Filters.command), address_request)
+                MessageHandler(Filters.text & (~Filters.command), datetime_request)
             ],
             USER_DELIVERY: [
-                MessageHandler(Filters.text & (~Filters.command), datetime_request)
+                MessageHandler(Filters.text & (~Filters.command), order_confirmation)
                 ],
             ORDER_CONFIRM: [
-                MessageHandler(Filters.text & (~Filters.command), order_confirmation)
+                MessageHandler(Filters.regex('^(Да, все верно!)$'), order_to_work),
+                MessageHandler(Filters.regex('^(Я передумал)$'), start)
                             ],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
@@ -494,12 +499,10 @@ if __name__ == '__main__':
     dispatcher.add_handler(order_handler)
     dispatcher.add_handler(florist_handler)
     dispatcher.add_handler(MessageHandler(Filters.text(PRICE_BUTTONS), show_relevant_flower))
-    dispatcher.add_handler(CommandHandler('cancel', cancel))
     dispatcher.add_handler(CallbackQueryHandler(confirm_agreement, pattern='^zakaz'))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Посмотреть всю коллекцию)$'), show_catalog_flower))
-    dispatcher.add_handler(MessageHandler(Filters.regex('^(Да, все верно!)$'), order_to_work))
-    dispatcher.add_handler(MessageHandler(Filters.regex('^(Я передумал)$'), start))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Не согласен)$'), start))
+    dispatcher.add_handler(CommandHandler('cancel', cancel))
 
     updater.start_polling()
     updater.idle()
