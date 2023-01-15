@@ -32,9 +32,12 @@ def get_bouquets_by_filter(category, price):
     return bouquets
 
 
-def get_bouquets(price=100000):
+def get_catalog(price=100000):
     bouquets = Bouquet.objects.filter(price__lte=price).order_by('-price')
     return bouquets
+
+def get_bouquet_for_order(bouquet_id):
+    return Bouquet.objects.get(id=bouquet_id)
 
 def create_order(user_data):
     bouquet = Bouquet.objects.get(user_data['bouquet_id']) # ссылка на выбранный букет

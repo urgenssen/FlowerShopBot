@@ -16,8 +16,8 @@ from telegram.ext import (
 from itertools import cycle
 from environs import Env
 from interface import (
-    get_categories, get_bouquets_by_filter, get_bouquets,
-    add_category, get_user, add_user
+    get_categories, get_bouquets_by_filter, get_catalog,
+    add_category, get_user, add_user, get_bouquet_for_order
 )
 
 logger = logging.getLogger(__name__)
@@ -29,8 +29,8 @@ PRICE_BUTTONS = ['1000', '3000', '5000', '10000', 'Не важно']
 
 # labels ConversationHandler
 OTHER_EVENT, PRICE = range(2)
-USER_NAME, USER_PHONE, USER_ADDRESS, USER_DELIVERY, ORDER_CONFIRM = range(2, 7)
-PHONE_NUMBER = 7
+USER_PHONE, USER_ADDRESS, USER_DELIVERY, SHOW_ORDER, ORDER_CONFIRM = range(2, 7)
+PHONE_NUMBER = 10
 
 
 def build_menu(buttons, n_cols,
@@ -137,7 +137,7 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
         reply_markup=reply_markup
         )
     else:
-        bouquets = get_bouquets()
+        bouquets = get_catalog()
         print(bouquets)
         context.user_data['bouquets'] = cycle(bouquets)
         context.user_data['index'] = 0
@@ -159,10 +159,8 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
     reply_markup=reply_markup
     )
 
-    return ConversationHandler.END
 
-
-def show_catalog_flower(update: Update, context: CallbackContext) -> None:
+def show_catalog_flower(update: Update, context: CallbackContext) -> int:
 
     if context.user_data.get('bouquets'):
         for bouquet in context.user_data.get('bouquets'):
@@ -198,7 +196,7 @@ def show_catalog_flower(update: Update, context: CallbackContext) -> None:
 
 
 def phonenumber_request(update: Update, context: CallbackContext) -> int:
-    #TODO как пропустить шаг если клиент есть в БД
+
     if not context.user_data['user']:
         keyboard = [[KeyboardButton('Отправить номер телефона', request_contact=True)]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
@@ -208,14 +206,8 @@ def phonenumber_request(update: Update, context: CallbackContext) -> int:
             ),
         reply_markup=reply_markup
         )
-        return PHONE_NUMBER
-    else:
-        update.message.reply_text(
-            text=(
-                'Нашли Ваш номер в базе данных.'
-            ),
-        )
-        return ConversationHandler.END
+
+    return PHONE_NUMBER
 
 
 def userphone_request(update: Update, context: CallbackContext) -> int:
@@ -232,9 +224,8 @@ def userphone_request(update: Update, context: CallbackContext) -> int:
             ),
         reply_markup=reply_markup
         )
-        return USER_ADDRESS
-    else:
-        return USER_DELIVERY
+
+    return USER_ADDRESS
 
 
 def florist_answer(update: Update, context: CallbackContext) -> int:
@@ -292,7 +283,7 @@ def start_order_prepare(update: Update, context: CallbackContext):
             ),
             reply_markup=ReplyKeyboardRemove()
         )
-        return USER_ADDRESS
+        return USER_DELIVERY
 
     else:
         update.effective_user.bot.send_message(
@@ -302,12 +293,14 @@ def start_order_prepare(update: Update, context: CallbackContext):
             ),
             reply_markup=ReplyKeyboardRemove()
         )
-        return USER_NAME
+        return USER_PHONE
 
 
 def address_request(update: Update, context: CallbackContext) -> int:
 
     phone_number = update.message.text
+    print(phone_number)
+    print(update.message.contact)
     if not phone_number:
         phone_number = update.message.contact.phone_number
     phone_number = phone_number.replace('+', '')
@@ -335,7 +328,7 @@ def datetime_request(update: Update, context: CallbackContext) -> int:
         ),
     )
 
-    return USER_DELIVERY
+    return SHOW_ORDER
 
 
 def order_confirmation(update: Update, context: CallbackContext) -> int:
@@ -353,6 +346,8 @@ def order_confirmation(update: Update, context: CallbackContext) -> int:
     update.message.reply_text(
         text=(
             'Заявка на доставку!\n\n'
+            f'Букет: {get_bouquet_for_order(user_data["bouquet_id"])}\n'
+            f'Номер заказа: (Номер Заказа добавить)'
             f'Адрес: {user_data["address"]}\n'
             f'Дата и время доставки: {user_data["delivery"]}\n'
             f'Контактный телефон: {user_data["phone_number"]}'
@@ -389,8 +384,8 @@ def order_to_work(update: Update, context: CallbackContext) -> int:
         chat_id=service_id,
         text=(
             'Заявка на доставку!\n\n'
-            f'Букет: {user_data["user"].bouquets}\n'
-            f'Номер заказа: (Номер Заказа добавить)'
+            f'Букет: {get_bouquet_for_order(user_data["bouquet_id"])}\n'
+            f'Номер заказа: (Номер Заказа добавить)\n'
             f'Адрес: {user_data["address"]}\n'
             f'Дата и время доставки: {user_data["delivery"]}\n'
             f'Контактный телефон: {user_data["phone_number"]}'
@@ -398,7 +393,6 @@ def order_to_work(update: Update, context: CallbackContext) -> int:
     )
 
     return ConversationHandler.END
-
 
 
 def confirm_agreement(update: Update, context: CallbackContext):
@@ -418,7 +412,8 @@ def confirm_agreement(update: Update, context: CallbackContext):
         document=open('soglasie.pdf', 'rb'),
         caption='Для оформления заказа требуется подтвердить согласие на обработку персональных данных',
         reply_markup=reply_markup
-)
+    )
+
 
 if __name__ == '__main__':
 
@@ -461,17 +456,17 @@ if __name__ == '__main__':
     order_handler = ConversationHandler(
         entry_points=[MessageHandler(Filters.regex('^(Согласен)$'), start_order_prepare)],
         states={
-            USER_NAME: [
+            USER_PHONE: [
                 MessageHandler(Filters.text & (~Filters.command), userphone_request)
             ],
-            USER_PHONE: [
+            USER_ADDRESS: [
                 MessageHandler(Filters.regex('^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$'), address_request),
                 MessageHandler(Filters.contact, address_request)
             ],
-            USER_ADDRESS: [
+            USER_DELIVERY: [
                 MessageHandler(Filters.text & (~Filters.command), datetime_request)
             ],
-            USER_DELIVERY: [
+            SHOW_ORDER: [
                 MessageHandler(Filters.text & (~Filters.command), order_confirmation)
                 ],
             ORDER_CONFIRM: [
