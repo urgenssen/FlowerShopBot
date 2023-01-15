@@ -10,14 +10,14 @@ from telegram import (
 )
 from telegram.ext import (
     Updater, CommandHandler, ConversationHandler, CallbackQueryHandler,
-    MessageHandler, Filters, CallbackContext, JobQueue
+    MessageHandler, Filters, CallbackContext
 )
 
 from itertools import cycle
 from environs import Env
 from interface import (
     get_categories, get_bouquets_by_filter, get_catalog,
-    add_category, get_user, add_user, get_bouquet_for_order
+    add_category, get_user, add_user, get_bouquet_for_order, create_order
 )
 
 logger = logging.getLogger(__name__)
@@ -336,8 +336,8 @@ def datetime_request(update: Update, context: CallbackContext) -> int:
     update.message.reply_text(
         text=(
             'Введите дату и время доставки:\n'
-            '(в формате ДД.ММ.ГГГГ)\n'
-            'PS: можно и так: завтра утром, в субботу к 14 часам'
+            '(в формате ДД.ММ.ГГГГ HH:MM)\n'
+            'PS: можно и так: завтра в 14:00 или в субботу'
         ),
     )
 
@@ -360,7 +360,6 @@ def order_confirmation(update: Update, context: CallbackContext) -> int:
         text=(
             'Заявка на доставку!\n\n'
             f'Букет: {get_bouquet_for_order(user_data["bouquet_id"])}\n'
-            f'Номер заказа: (Номер Заказа добавить)'
             f'Адрес: {user_data["address"]}\n'
             f'Дата и время доставки: {user_data["delivery"]}\n'
             f'Контактный телефон: {user_data["phone_number"]}'
@@ -388,7 +387,7 @@ def order_to_work(update: Update, context: CallbackContext) -> int:
     if not get_user(tg_user_id=user_data['id']):
         add_user(tg_user_id=user_data['id'], name=user_data['fullname'], phone_number=user_data['phone_number'])
 
-    # TODO создать заказ и получить его номер id
+    order = create_order(user_data)
     # отправка уведомления курьерам
     service_id = context.bot_data['service_id']
     user_data = context.user_data
@@ -398,7 +397,7 @@ def order_to_work(update: Update, context: CallbackContext) -> int:
         text=(
             'Заявка на доставку!\n\n'
             f'Букет: {get_bouquet_for_order(user_data["bouquet_id"])}\n'
-            f'Номер заказа: (Номер Заказа добавить)\n'
+            f'Номер заказа: {order.id}\n'
             f'Адрес: {user_data["address"]}\n'
             f'Дата и время доставки: {user_data["delivery"]}\n'
             f'Контактный телефон: {user_data["phone_number"]}'

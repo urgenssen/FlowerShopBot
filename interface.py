@@ -1,6 +1,6 @@
 from flowershopapp.models import User, Bouquet, Category, Order
-from django.shortcuts import get_object_or_404
-
+from django.utils.timezone import now
+from dateparser import parse
 
 def get_categories():
     return [category.name for category in Category.objects.all()]
@@ -40,5 +40,16 @@ def get_bouquet_for_order(bouquet_id):
     return Bouquet.objects.get(id=bouquet_id)
 
 def create_order(user_data):
-    bouquet = Bouquet.objects.get(user_data['bouquet_id']) # ссылка на выбранный букет
-    # TODO создать заказ
+    user = User.objects.get(tg_user_id=user_data['id'])
+    bouquet = Bouquet.objects.get(id=user_data['bouquet_id'])
+    delivery_date_time = parse(user_data['delivery'], languages=['ru',], settings={'PREFER_DATES_FROM': 'future'})
+    if not delivery_date_time:
+        delivery_date_time = now
+    order = Order.objects.create(
+        customer=user,
+        bouquet=bouquet,
+        delivery_date_time=delivery_date_time,
+        address=user_data['address']
+    )
+
+    return order
