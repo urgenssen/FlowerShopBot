@@ -94,8 +94,8 @@ def price_request(update: Update, context: CallbackContext) -> int:
     event = update.message.text
     context.user_data['event'] = event
 
-    if event not in get_categories():
-        add_category(category=event)
+    # if event not in get_categories():
+    #     add_category(category=event)
 
     price_keyboard = build_menu(PRICE_BUTTONS, 3)
     reply_markup = ReplyKeyboardMarkup(price_keyboard, resize_keyboard=True, one_time_keyboard=True)
@@ -159,6 +159,7 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
     reply_markup=reply_markup
     )
 
+    return ConversationHandler.END
 
 def show_catalog_flower(update: Update, context: CallbackContext) -> int:
 
@@ -454,7 +455,6 @@ if __name__ == '__main__':
         states={
             OTHER_EVENT: [MessageHandler(Filters.text & (~Filters.command), price_request)
             ],
-
             PRICE: [
                 MessageHandler(Filters.text(PRICE_BUTTONS), show_relevant_flower)
             ],
