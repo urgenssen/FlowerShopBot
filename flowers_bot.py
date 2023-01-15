@@ -10,7 +10,7 @@ from telegram import (
 )
 from telegram.ext import (
     Updater, CommandHandler, ConversationHandler, CallbackQueryHandler,
-    MessageHandler, Filters, CallbackContext,
+    MessageHandler, Filters, CallbackContext, JobQueue
 )
 
 from itertools import cycle
@@ -197,7 +197,7 @@ def show_catalog_flower(update: Update, context: CallbackContext) -> int:
 
 def phonenumber_request(update: Update, context: CallbackContext) -> int:
 
-    if not context.user_data['user']:
+    if not context.user_data['user'] or update.message.text == 'Нет':
         keyboard = [[KeyboardButton('Отправить номер телефона', request_contact=True)]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
         update.message.reply_text(
@@ -206,8 +206,20 @@ def phonenumber_request(update: Update, context: CallbackContext) -> int:
             ),
         reply_markup=reply_markup
         )
+    else:
+        option_keyboard = [['Да', 'Нет']]
+        reply_markup = ReplyKeyboardMarkup(option_keyboard, resize_keyboard=True)
+
+        update.message.reply_text(
+            text=(
+                f'Связаться с Вами можно по этому номеру: {context.user_data["user"].phone_number}?\n'
+            ),
+            reply_markup=reply_markup
+        )
 
     return PHONE_NUMBER
+
+
 
 
 def userphone_request(update: Update, context: CallbackContext) -> int:
@@ -461,7 +473,7 @@ if __name__ == '__main__':
             ],
             USER_ADDRESS: [
                 MessageHandler(Filters.regex('^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$'), address_request),
-                MessageHandler(Filters.contact, address_request)
+                MessageHandler(Filters.contact, address_request),
             ],
             USER_DELIVERY: [
                 MessageHandler(Filters.text & (~Filters.command), datetime_request)
@@ -482,7 +494,9 @@ if __name__ == '__main__':
         states={
             PHONE_NUMBER: [
                 MessageHandler(Filters.regex('^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$'), florist_answer),
-                MessageHandler(Filters.contact, florist_answer)
+                MessageHandler(Filters.contact, florist_answer),
+                MessageHandler(Filters.regex('^(Да)$'), florist_answer),
+                MessageHandler(Filters.regex('^(Нет)$'), phonenumber_request)
             ]
         },
         fallbacks=[CommandHandler('cancel', cancel)],
