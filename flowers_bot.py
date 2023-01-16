@@ -373,11 +373,11 @@ def order_confirmation(update: Update, context: CallbackContext) -> int:
         date_delivery = context.user_data['delivery'].strftime('%d.%m.%Y')
         time_delivery = context.user_data['delivery'].strftime('%H:%M')
         if time_delivery == '00:00':
-            time_delivery = 'Уточнить у заказчика'
+            time_delivery = 'Время уточнить'
     else:
         context.user_data['delivery'] = datetime.today()
         date_delivery = context.user_data['delivery'].strftime('%d.%m.%Y')
-        time_delivery = 'Уточнить у заказчика'
+        time_delivery = 'Время уточнить'
 
     context.user_data['date_delivery'] = date_delivery
     context.user_data['time_delivery'] = time_delivery
