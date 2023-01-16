@@ -356,7 +356,7 @@ def datetime_request(update: Update, context: CallbackContext) -> int:
         text=(
             'Введите дату и время доставки:\n'
             '(в формате ДД.ММ.ГГГГ HH:MM)\n'
-            'PS: можно и так: завтра в 14:00 или в субботу'
+            'PS: можно и так: "завтра в 14:00" или "26 января"'
         ),
     )
 
@@ -366,11 +366,21 @@ def datetime_request(update: Update, context: CallbackContext) -> int:
 def order_confirmation(update: Update, context: CallbackContext) -> int:
 
     delivery = update.message.text
+    delivery = delivery.replace('-', ':')
     delivery_date_time = parse(delivery, languages=['ru',], settings={'PREFER_DATES_FROM': 'future'})
     if delivery_date_time:
         context.user_data['delivery'] = delivery_date_time
+        date_delivery = context.user_data['delivery'].strftime('%d.%m.%Y')
+        time_delivery = context.user_data['delivery'].strftime('%H:%M')
+        if time_delivery == '00:00':
+            time_delivery = 'Уточнить у заказчика'
     else:
-        context.user_data['delivery'] = datetime.now()
+        context.user_data['delivery'] = datetime.today()
+        date_delivery = context.user_data['delivery'].strftime('%d.%m.%Y')
+        time_delivery = 'Уточнить у заказчика'
+
+    context.user_data['date_delivery'] = date_delivery
+    context.user_data['time_delivery'] = time_delivery
 
     user = context.user_data['user']
     if user:
@@ -385,7 +395,7 @@ def order_confirmation(update: Update, context: CallbackContext) -> int:
             'Заявка на доставку!\n\n'
             f'Букет: {get_bouquet_for_order(user_data["bouquet_id"])}\n'
             f'Адрес: {user_data["address"]}\n'
-            f'Дата и время доставки: {user_data["delivery"]}\n'
+            f'Дата и время доставки: {date_delivery} ({time_delivery})\n'
             f'Контактный телефон: {user_data["phone_number"]}'
         ),
     reply_markup=reply_markup
@@ -415,6 +425,8 @@ def order_to_work(update: Update, context: CallbackContext) -> int:
     # отправка уведомления курьерам
     service_id = context.bot_data['service_id']
     user_data = context.user_data
+    date_delivery = context.user_data['date_delivery']
+    time_delivery = context.user_data['time_delivery']
 
     update.effective_user.bot.send_message(
         chat_id=service_id,
@@ -423,7 +435,7 @@ def order_to_work(update: Update, context: CallbackContext) -> int:
             f'Букет: {get_bouquet_for_order(user_data["bouquet_id"])}\n'
             f'Номер заказа: {order.id}\n'
             f'Адрес: {user_data["address"]}\n'
-            f'Дата и время доставки: {user_data["delivery"]}\n'
+            f'Дата и время доставки: {date_delivery} ({time_delivery})\n'
             f'Контактный телефон: {user_data["phone_number"]}'
         ),
     )
