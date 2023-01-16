@@ -3,7 +3,6 @@ import logging
 import django
 os.environ['DJANGO_SETTINGS_MODULE'] = 'flowershop.settings'
 django.setup()
-
 from telegram import (
     Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton,
     InlineKeyboardMarkup, KeyboardButton
@@ -12,21 +11,18 @@ from telegram.ext import (
     Updater, CommandHandler, ConversationHandler, CallbackQueryHandler,
     MessageHandler, Filters, CallbackContext
 )
-
 from itertools import cycle
 from environs import Env
 from geopy.geocoders import Nominatim
 from dateparser import parse
 from datetime import datetime
-
 from interface import (
     get_categories, get_bouquets_by_filter, get_catalog,
-    add_category, get_user, add_user, get_bouquet_for_order, create_order
+    get_user, add_user, get_bouquet_for_order, create_order
 )
 
 logger = logging.getLogger(__name__)
 
-# EVENT_BUTTONS = ['День рождения', 'Свадьба', 'Школа', 'Без повода'] # TODO выбор категорий из базы данных?
 EVENT_BUTTONS = get_categories()
 
 PRICE_BUTTONS = ['1000', '3000', '5000', '10000', 'Не важно']
@@ -56,7 +52,6 @@ def start(update: Update, context: CallbackContext) -> int:
 
     EVENT_BUTTONS = get_categories()
     context.user_data['user'] = get_user(update.message.from_user.id)
-    print(context.user_data['user'])
 
     event_keyboard = build_menu(EVENT_BUTTONS, 2, footer_buttons='Другой повод')
     reply_markup = ReplyKeyboardMarkup(event_keyboard, resize_keyboard=True, one_time_keyboard=True)
@@ -98,9 +93,6 @@ def price_request(update: Update, context: CallbackContext) -> int:
     event = update.message.text
     context.user_data['event'] = event
 
-    # if event not in get_categories():
-    #     add_category(category=event)
-
     price_keyboard = build_menu(PRICE_BUTTONS, 3)
     reply_markup = ReplyKeyboardMarkup(price_keyboard, resize_keyboard=True, one_time_keyboard=True)
     update.message.reply_text(
@@ -120,7 +112,6 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
     if price == 'Не важно':
         price = 100000
     bouquets = get_bouquets_by_filter(event, price)
-    print(bouquets)
 
     if bouquets:
         context.user_data['bouquets'] = cycle(bouquets)
@@ -142,7 +133,6 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
         )
     else:
         bouquets = get_catalog()
-        print(bouquets)
         context.user_data['bouquets'] = cycle(bouquets)
         context.user_data['index'] = 0
 
@@ -165,7 +155,7 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
 
     return ConversationHandler.END
 
-def show_catalog_flower(update: Update, context: CallbackContext) -> int:
+def show_catalog_flower(update: Update, context: CallbackContext) -> None:
 
     if context.user_data.get('bouquets'):
         for bouquet in context.user_data.get('bouquets'):
@@ -223,8 +213,6 @@ def phonenumber_request(update: Update, context: CallbackContext) -> int:
         )
 
     return PHONE_NUMBER
-
-
 
 
 def userphone_request(update: Update, context: CallbackContext) -> int:
@@ -319,8 +307,6 @@ def start_order_prepare(update: Update, context: CallbackContext):
 def address_request(update: Update, context: CallbackContext) -> int:
 
     phone_number = update.message.text
-    print(phone_number)
-    print(update.message.contact)
     if not phone_number:
         phone_number = update.message.contact.phone_number
     phone_number = phone_number.replace('+', '')
@@ -406,7 +392,6 @@ def order_confirmation(update: Update, context: CallbackContext) -> int:
 
 def order_to_work(update: Update, context: CallbackContext) -> int:
 
-    print(context.user_data)
     user_data = context.user_data
     user = context.user_data['user']
 
@@ -450,7 +435,6 @@ def confirm_agreement(update: Update, context: CallbackContext):
     context.user_data['bouquet_id'] = query.data.split('_')[-1]
 
     context.user_data['id'] = update.effective_user.id
-    print(context.user_data)
 
     agree_keyboard = [['Согласен', 'Не согласен']]
     reply_markup = ReplyKeyboardMarkup(agree_keyboard, resize_keyboard=True)
@@ -497,9 +481,6 @@ if __name__ == '__main__':
         fallbacks=[CommandHandler('cancel', cancel)],
     )
 
-    # # regex номера телефона '^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$'
-    # # (Источник: https://habr.com/ru/post/110731/)
-
     order_handler = ConversationHandler(
         entry_points=[MessageHandler(Filters.regex('^(Согласен)$'), start_order_prepare)],
         states={
@@ -507,6 +488,8 @@ if __name__ == '__main__':
                 MessageHandler(Filters.text & (~Filters.command), userphone_request)
             ],
             USER_ADDRESS: [
+                # # regex номера телефона '^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$'
+                # # (Источник: https://habr.com/ru/post/110731/)
                 MessageHandler(Filters.regex('^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$'), address_request),
                 MessageHandler(Filters.contact, address_request),
             ],
