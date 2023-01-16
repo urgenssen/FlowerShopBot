@@ -16,6 +16,9 @@ from telegram.ext import (
 from itertools import cycle
 from environs import Env
 from geopy.geocoders import Nominatim
+from dateparser import parse
+from datetime import datetime
+
 from interface import (
     get_categories, get_bouquets_by_filter, get_catalog,
     add_category, get_user, add_user, get_bouquet_for_order, create_order
@@ -132,7 +135,7 @@ def show_relevant_flower(update: Update, context: CallbackContext) -> int:
             caption=(
                 f'{relevant_bouquet.name}\n\n'
                 f'Описание: {relevant_bouquet.text}\n'
-                f'Состав: {relevant_bouquet.content}\n\n'
+                f'Состав:\n {relevant_bouquet.content}\n\n'
                 f'Цена: {relevant_bouquet.price}'
             ),
         reply_markup=reply_markup
@@ -178,8 +181,8 @@ def show_catalog_flower(update: Update, context: CallbackContext) -> int:
         photo=new_bouquet.img_url,
         caption=(
             f'{new_bouquet.name}\n\n'
-            f'Описание: {new_bouquet.text}\n'
-            f'Состав: {new_bouquet.content}\n\n'
+            f'Описание: {new_bouquet.text}\n\n'
+            f'Состав:\n {new_bouquet.content}\n\n'
             f'Цена: {new_bouquet.price}'
         ),
         reply_markup=reply_markup
@@ -363,7 +366,12 @@ def datetime_request(update: Update, context: CallbackContext) -> int:
 def order_confirmation(update: Update, context: CallbackContext) -> int:
 
     delivery = update.message.text
-    context.user_data['delivery'] = delivery
+    delivery_date_time = parse(delivery, languages=['ru',], settings={'PREFER_DATES_FROM': 'future'})
+    if delivery_date_time:
+        context.user_data['delivery'] = delivery_date_time
+    else:
+        context.user_data['delivery'] = datetime.now()
+
     user = context.user_data['user']
     if user:
         context.user_data['phone_number'] = user.phone_number
