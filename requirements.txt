@@ -4,3 +4,4 @@ environs[django]==9.5.0
 python-telegram-bot==13.15
 # django-phonenumber-field[phonenumbers]==7.0.1
 dateparser==1.1.6
+geopy==2.3.0

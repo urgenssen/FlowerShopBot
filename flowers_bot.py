@@ -15,6 +15,7 @@ from telegram.ext import (
 
 from itertools import cycle
 from environs import Env
+from geopy.geocoders import Nominatim
 from interface import (
     get_categories, get_bouquets_by_filter, get_catalog,
     add_category, get_user, add_user, get_bouquet_for_order, create_order
@@ -289,12 +290,15 @@ def start_order_prepare(update: Update, context: CallbackContext):
 
     if  user and user.name:
 
+        keyboard = [[KeyboardButton('Отправить текущее местоположение', request_location=True)]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+
         update.effective_user.bot.send_message (
             chat_id=chat_id,
             text=(
                 'Введите адрес доставки:'
             ),
-            reply_markup=ReplyKeyboardRemove()
+            reply_markup=reply_markup
         )
         return USER_DELIVERY
 
@@ -320,10 +324,14 @@ def address_request(update: Update, context: CallbackContext) -> int:
 
     context.user_data['phone_number'] = phone_number
 
+    keyboard = [[KeyboardButton('Отправить текущее местоположение', request_location=True)]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+
     update.message.reply_text(
         text=(
             'Введите адрес доставки:'
         ),
+        reply_markup=reply_markup
     )
 
     return USER_DELIVERY
@@ -331,7 +339,15 @@ def address_request(update: Update, context: CallbackContext) -> int:
 
 def datetime_request(update: Update, context: CallbackContext) -> int:
 
-    context.user_data['address'] = update.message.text
+    if update.message.text:
+        context.user_data['address'] = update.message.text
+    else:
+
+        latitude = update.message.location.latitude
+        longitude = update.message.location.longitude
+        geolocator = Nominatim(user_agent="flowers_bot")
+        location = geolocator.reverse((latitude, longitude))
+        context.user_data['address'] = location.address
 
     update.message.reply_text(
         text=(
@@ -475,7 +491,8 @@ if __name__ == '__main__':
                 MessageHandler(Filters.contact, address_request),
             ],
             USER_DELIVERY: [
-                MessageHandler(Filters.text & (~Filters.command), datetime_request)
+                MessageHandler(Filters.text & (~Filters.command), datetime_request),
+                MessageHandler(Filters.location, datetime_request),
             ],
             SHOW_ORDER: [
                 MessageHandler(Filters.text & (~Filters.command), order_confirmation)
